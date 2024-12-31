@@ -1,13 +1,12 @@
 {
   "name": "matrix-chat",
   "version": "1.0.0",
-  "description": "Matrix style countdown with chat room",
+  "description": "Matrix style countdown and chat application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.17.1",
-    "ws": "^8.2.3"
+    "ws": "^8.13.0"
   }
 } 
