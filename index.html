@@ -29,7 +29,7 @@
             height: 100vh;
         }
 
-        /* 倒计时容器样式 */
+        /* 时间显示容器样式 */
         #countdown {
             position: relative;
             z-index: 1;
@@ -61,12 +61,103 @@
             animation: hover 2s ease-in-out infinite;
         }
 
-        /* 单位（时分秒）样式 */
+        /* 单位（年月日时分秒）样式 */
         .unit {
             font-size: 0.4em;
             letter-spacing: 0;
             margin: 0 5px;
             opacity: 0.8;
+        }
+
+        /* 三角形按钮样式 - 用于页面导航 */
+        #nextButton {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 25px solid #00ff00;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            filter: drop-shadow(0 2px 2px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 5px rgba(0, 255, 0, 0.3));
+            transform: perspective(50px) rotateX(5deg);
+        }
+
+        /* 三角形按钮的高光效果 */
+        #nextButton:before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: -13px;
+            width: 0;
+            height: 0;
+            border-left: 13px solid transparent;
+            border-right: 13px solid transparent;
+            border-bottom: 21px solid rgba(255, 255, 255, 0.3);
+            z-index: 11;
+            pointer-events: none;
+        }
+
+        /* 三角形按钮悬停效果 */
+        #nextButton:hover {
+            transform: perspective(50px) rotateX(5deg) scale(1.1);
+            filter: drop-shadow(0 4px 4px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 8px rgba(0, 255, 0, 0.5));
+            border-bottom-color: #00ff33;
+        }
+
+        /* 三角形按钮点击效果 */
+        #nextButton:active {
+            transform: perspective(50px) rotateX(5deg) scale(0.95);
+            filter: drop-shadow(0 1px 1px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 3px rgba(0, 255, 0, 0.3));
+        }
+
+        /* 圆形按钮样式 */
+        #circleButton {
+            position: fixed;
+            bottom: 20px;
+            right: 80px;  /* 位于三角形按钮左侧 */
+            width: 25px;
+            height: 25px;
+            background: #00ff00;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 2px 2px rgba(0, 100, 0, 0.5),
+                       0 0 5px rgba(0, 255, 0, 0.3);
+            transform: perspective(50px) rotateX(5deg);
+        }
+
+        #circleButton:before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            bottom: 2px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 11;
+            pointer-events: none;
+        }
+
+        #circleButton:hover {
+            transform: perspective(50px) rotateX(5deg) scale(1.1);
+            box-shadow: 0 4px 4px rgba(0, 100, 0, 0.5),
+                       0 0 8px rgba(0, 255, 0, 0.5);
+            background: #00ff33;
+        }
+
+        #circleButton:active {
+            transform: perspective(50px) rotateX(5deg) scale(0.95);
+            box-shadow: 0 1px 1px rgba(0, 100, 0, 0.5),
+                       0 0 3px rgba(0, 255, 0, 0.3);
         }
 
         /* 整体浮动动画 */
@@ -106,56 +197,12 @@
                     0 0 60px rgba(0, 255, 0, 0.3);
             }
         }
-
-        /* 三角形按钮样式 */
-        #nextButton {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 0;
-            height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-bottom: 25px solid #00ff00;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            z-index: 10;
-            filter: drop-shadow(0 2px 2px rgba(0, 100, 0, 0.5))
-                   drop-shadow(0 0 5px rgba(0, 255, 0, 0.3));
-            transform: perspective(50px) rotateX(5deg);
-        }
-
-        #nextButton:before {
-            content: '';
-            position: absolute;
-            top: 2px;
-            left: -13px;
-            width: 0;
-            height: 0;
-            border-left: 13px solid transparent;
-            border-right: 13px solid transparent;
-            border-bottom: 21px solid rgba(255, 255, 255, 0.3);
-            z-index: 11;
-            pointer-events: none;
-        }
-
-        #nextButton:hover {
-            transform: perspective(50px) rotateX(5deg) scale(1.1);
-            filter: drop-shadow(0 4px 4px rgba(0, 100, 0, 0.5))
-                   drop-shadow(0 0 8px rgba(0, 255, 0, 0.5));
-            border-bottom-color: #00ff33;
-        }
-
-        #nextButton:active {
-            transform: perspective(50px) rotateX(5deg) scale(0.95);
-            filter: drop-shadow(0 1px 1px rgba(0, 100, 0, 0.5))
-                   drop-shadow(0 0 3px rgba(0, 255, 0, 0.3));
-        }
     </style>
 </head>
 <body>
     <!-- 数字雨背景画布 -->
     <canvas id="matrix"></canvas>
+
     <!-- 日期和时间显示区域 -->
     <div id="countdown">
         <div class="title">现在是</div>
@@ -177,8 +224,9 @@
         </div>
     </div>
 
-    <!-- 三角形按钮 -->
+    <!-- 导航按钮区域 -->
     <div id="nextButton" onclick="window.location.href='minesweeper.html'"></div>
+    <div id="circleButton" onclick="window.location.href='candy-crush/index.html'"></div>
 
     <script>
         // 日期和时间更新函数
@@ -216,7 +264,7 @@
             timeSpans[2].textContent = formattedSeconds;
         }
 
-        // 初始化并每秒更新一次
+        // 初始化并每秒更新一次时间
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
