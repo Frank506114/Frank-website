@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Countdown</title>
+    <!-- 引入Share Tech Mono字体，适合显示数字 -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* 基础页面样式 */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Share Tech Mono', monospace;
+            perspective: 1000px; /* 3D视角效果 */
+        }
+
+        /* 数字雨画布样式 */
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 倒计时容器样式 */
+        #countdown {
+            position: relative;
+            z-index: 1;
+            color: #0f0;
+            font-size: 4em;
+            /* 多层文字阴影创建发光效果 */
+            text-shadow: 
+                0 0 20px rgba(0, 255, 0, 0.7),
+                0 0 40px rgba(0, 255, 0, 0.5),
+                0 0 60px rgba(0, 255, 0, 0.3);
+            padding: 30px 50px;
+            letter-spacing: -2px;
+            animation: float 6s ease-in-out infinite;
+            transform-style: preserve-3d;
+            text-align: center;
+        }
+
+        /* 标题样式 */
+        .title {
+            font-size: 0.8em;
+            margin-bottom: 20px;
+            opacity: 0.9;
+            letter-spacing: 2px;
+        }
+
+        /* 数字样式 */
+        #countdown span {
+            display: inline-block;
+            animation: hover 2s ease-in-out infinite;
+        }
+
+        /* 单位（时分秒）样式 */
+        .unit {
+            font-size: 0.4em;
+            letter-spacing: 0;
+            margin: 0 5px;
+            opacity: 0.8;
+        }
+
+        /* 整体浮动动画 */
+        @keyframes float {
+            0% {
+                transform: translateY(0) rotateX(0deg);
+            }
+            50% {
+                transform: translateY(-20px) rotateX(5deg);
+            }
+            100% {
+                transform: translateY(0) rotateX(0deg);
+            }
+        }
+
+        /* 数字悬浮动画 */
+        @keyframes hover {
+            0% {
+                transform: translateY(0) scale(1);
+                text-shadow: 
+                    0 0 20px rgba(0, 255, 0, 0.7),
+                    0 0 40px rgba(0, 255, 0, 0.5),
+                    0 0 60px rgba(0, 255, 0, 0.3);
+            }
+            50% {
+                transform: translateY(-5px) scale(1.1);
+                text-shadow: 
+                    0 0 30px rgba(0, 255, 0, 0.9),
+                    0 0 60px rgba(0, 255, 0, 0.7),
+                    0 0 90px rgba(0, 255, 0, 0.5);
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                text-shadow: 
+                    0 0 20px rgba(0, 255, 0, 0.7),
+                    0 0 40px rgba(0, 255, 0, 0.5),
+                    0 0 60px rgba(0, 255, 0, 0.3);
+            }
+        }
+
+        /* 三角形按钮样式 */
+        #nextButton {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 25px solid #00ff00;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            filter: drop-shadow(0 2px 2px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 5px rgba(0, 255, 0, 0.3));
+            transform: perspective(50px) rotateX(5deg);
+        }
+
+        #nextButton:before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: -13px;
+            width: 0;
+            height: 0;
+            border-left: 13px solid transparent;
+            border-right: 13px solid transparent;
+            border-bottom: 21px solid rgba(255, 255, 255, 0.3);
+            z-index: 11;
+            pointer-events: none;
+        }
+
+        #nextButton:hover {
+            transform: perspective(50px) rotateX(5deg) scale(1.1);
+            filter: drop-shadow(0 4px 4px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 8px rgba(0, 255, 0, 0.5));
+            border-bottom-color: #00ff33;
+        }
+
+        #nextButton:active {
+            transform: perspective(50px) rotateX(5deg) scale(0.95);
+            filter: drop-shadow(0 1px 1px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 3px rgba(0, 255, 0, 0.3));
+        }
+    </style>
+</head>
+<body>
+    <!-- 数字雨背景画布 -->
+    <canvas id="matrix"></canvas>
+    <!-- 日期和时间显示区域 -->
+    <div id="countdown">
+        <div class="title">现在是</div>
+        <div class="date">
+            <span>2024</span>
+            <span class="unit">年</span>
+            <span>01</span>
+            <span class="unit">月</span>
+            <span>01</span>
+            <span class="unit">日</span>
+        </div>
+        <div class="time">
+            <span>00</span>
+            <span class="unit">时</span>
+            <span>00</span>
+            <span class="unit">分</span>
+            <span>00</span>
+            <span class="unit">秒</span>
+        </div>
+    </div>
+
+    <!-- 三角形按钮 -->
+    <div id="nextButton" onclick="window.location.href='minesweeper.html'"></div>
+
+    <script>
+        // 日期和时间更新函数
+        function updateDateTime() {
+            const now = new Date();
+            
+            // 获取当前日期
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1; // getMonth() 返回 0-11
+            const day = now.getDate();
+
+            // 获取当前时间
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+
+            // 格式化数字，补充前导零
+            const formattedYear = String(year);
+            const formattedMonth = String(month).padStart(2, '0');
+            const formattedDay = String(day).padStart(2, '0');
+            const formattedHours = String(hours).padStart(2, '0');
+            const formattedMinutes = String(minutes).padStart(2, '0');
+            const formattedSeconds = String(seconds).padStart(2, '0');
+
+            // 更新日期显示
+            const dateSpans = document.querySelectorAll('.date span:not(.unit)');
+            dateSpans[0].textContent = formattedYear;
+            dateSpans[1].textContent = formattedMonth;
+            dateSpans[2].textContent = formattedDay;
+
+            // 更新时间显示
+            const timeSpans = document.querySelectorAll('.time span:not(.unit)');
+            timeSpans[0].textContent = formattedHours;
+            timeSpans[1].textContent = formattedMinutes;
+            timeSpans[2].textContent = formattedSeconds;
+        }
+
+        // 初始化并每秒更新一次
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // Matrix数字雨效果
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+
+        // 设置画布尺寸为窗口大小
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        // 监听窗口大小变化
+        window.addEventListener('resize', resizeCanvas);
+
+        // 数字雨配置
+        const chars = '0123456789ABCDEF'; // 显示的字符集
+        const fontSize = 16; // 字体大小
+        const columns = canvas.width / fontSize; // 计算列数
+        const drops = []; // 存储每列的当前位置
+
+        // 初始化每列的起始位置
+        for (let i = 0; i < columns; i++) {
+            drops[i] = 1;
+        }
+
+        // 绘制数字雨
+        function draw() {
+            // 创建半透明黑色背景，形成渐隐效果
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 设置文字样式
+            ctx.font = fontSize + 'px monospace';
+
+            // 绘制每一列的字符
+            for (let i = 0; i < drops.length; i++) {
+                // 随机选择字符
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                // 计算透明度，使字符向下渐隐
+                const alpha = 1 - (drops[i] * fontSize) / canvas.height;
+                ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+                // 绘制字符
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                // 当字符到达底部时，有一定概率重置到顶部
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+
+        // 每33毫秒更新一次动画（约30fps）
+        setInterval(draw, 33);
+    </script>
+</body>
+</html>

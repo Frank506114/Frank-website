@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>网页版扫雷</title>
+    <style>
+        canvas {
+            border: 1px solid #999;
+            margin: 20px auto;
+            display: block;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            transition: transform 0.3s;
+        }
+        canvas:hover {
+            transform: scale(1.01);
+        }
+        .instructions {
+            text-align: center;
+            margin: 10px;
+            font-family: Arial, sans-serif;
+            color: #444;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #restartButton {
+            display: none;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s;
+            animation: fadeIn 0.5s;
+        }
+        #restartButton:hover {
+            background-color: #45a049;
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes reveal {
+            0% { transform: scale(0.1); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .reveal-animation {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.5);
+            pointer-events: none;
+            animation: reveal 0.3s ease-out forwards;
+            transform-origin: center;
+        }
+        #timer {
+            text-align: center;
+            font-size: 24px;
+            color: #444;
+            margin: 10px;
+            font-family: monospace;
+        }
+        /* 返回按钮样式 */
+        #backButton {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 25px solid #00ff00;
+            cursor: pointer;
+            transform: rotate(180deg) perspective(50px) rotateX(-5deg);
+            transition: all 0.3s ease;
+            z-index: 10;
+            filter: drop-shadow(0 -2px 2px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 5px rgba(0, 255, 0, 0.3));
+        }
+
+        #backButton:before {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: -13px;
+            width: 0;
+            height: 0;
+            border-left: 13px solid transparent;
+            border-right: 13px solid transparent;
+            border-bottom: 21px solid rgba(255, 255, 255, 0.3);
+            z-index: 11;
+            pointer-events: none;
+            transform: rotate(180deg);
+        }
+
+        #backButton:hover {
+            transform: rotate(180deg) perspective(50px) rotateX(-5deg) scale(1.1);
+            filter: drop-shadow(0 -4px 4px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 8px rgba(0, 255, 0, 0.5));
+            border-bottom-color: #00ff33;
+        }
+
+        #backButton:active {
+            transform: rotate(180deg) perspective(50px) rotateX(-5deg) scale(0.95);
+            filter: drop-shadow(0 -1px 1px rgba(0, 100, 0, 0.5))
+                   drop-shadow(0 0 3px rgba(0, 255, 0, 0.3));
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <p>左键点击: 揭示方块 | 双击: 快速展开 | 右键点击: 标记地雷</p>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="timer">时间: 0秒</div>
+    <button id="restartButton">重新开始</button>
+    <!-- 返回按钮 -->
+    <div id="backButton" onclick="window.location.href='index.html'"></div>
+    <script>
+        const CELL_SIZE = 30;
+        const GRID_SIZE = 16;
+        const MINES_COUNT = 40;
+        const CANVAS_SIZE = CELL_SIZE * GRID_SIZE;
+
+        const COLORS = {
+            1: '#0000FF',
+            2: '#008000',
+            3: '#FF0000',
+            4: '#000080',
+            5: '#800000',
+            6: '#008080',
+            7: '#000000',
+            8: '#808080'
+        };
+
+        class Minesweeper {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.canvas.width = CANVAS_SIZE;
+                this.canvas.height = CANVAS_SIZE;
+                this.ctx = this.canvas.getContext('2d');
+                
+                this.grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+                this.revealed = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(false));
+                this.flags = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(false));
+                this.gameOver = false;
+                this.won = false;
+                
+                this.lastClickTime = 0;
+                
+                this.restartButton = document.getElementById('restartButton');
+                this.setupRestartButton();
+                
+                this.startTime = null;
+                this.timerInterval = null;
+                this.timerElement = document.getElementById('timer');
+                
+                this.placeMines();
+                this.calculateNumbers();
+                this.setupEventListeners();
+            }
+
+            placeMines() {
+                let minesPlaced = 0;
+                while (minesPlaced < MINES_COUNT) {
+                    const x = Math.floor(Math.random() * GRID_SIZE);
+                    const y = Math.floor(Math.random() * GRID_SIZE);
+                    if (this.grid[y][x] !== -1) {
+                        this.grid[y][x] = -1;
+                        minesPlaced++;
+                    }
+                }
+            }
+
+            calculateNumbers() {
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        if (this.grid[y][x] === -1) continue;
+                        let count = 0;
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                if (y + dy >= 0 && y + dy < GRID_SIZE && 
+                                    x + dx >= 0 && x + dx < GRID_SIZE) {
+                                    if (this.grid[y + dy][x + dx] === -1) count++;
+                                }
+                            }
+                        }
+                        this.grid[y][x] = count;
+                    }
+                }
+            }
+
+            revealCell(x, y) {
+                if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+                if (this.revealed[y][x] || this.flags[y][x]) return;
+                
+                this.revealed[y][x] = true;
+                
+                const cell = document.createElement('div');
+                cell.className = 'reveal-animation';
+                const rect = this.canvas.getBoundingClientRect();
+                const offsetX = rect.left;
+                const offsetY = rect.top;
+                cell.style.left = (offsetX + x * CELL_SIZE) + 'px';
+                cell.style.top = (offsetY + y * CELL_SIZE) + 'px';
+                cell.style.width = CELL_SIZE + 'px';
+                cell.style.height = CELL_SIZE + 'px';
+                cell.style.zIndex = '1000';
+                document.body.appendChild(cell);
+                setTimeout(() => cell.remove(), 300);
+                
+                if (!this.startTime && !this.gameOver && !this.won) {
+                    this.startTimer();
+                }
+                
+                if (this.grid[y][x] === -1) {
+                    this.gameOver = true;
+                    this.stopTimer();
+                    this.canvas.style.animation = 'shake 0.5s';
+                    return;
+                }
+                
+                if (this.grid[y][x] === 0) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            this.revealCell(x + dx, y + dy);
+                        }
+                    }
+                }
+            }
+
+            handleDoubleClick(x, y) {
+                if (!this.revealed[y][x]) return;
+                
+                let flagCount = 0;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (y + dy >= 0 && y + dy < GRID_SIZE && 
+                            x + dx >= 0 && x + dx < GRID_SIZE) {
+                            if (this.flags[y + dy][x + dx]) flagCount++;
+                        }
+                    }
+                }
+                
+                if (flagCount === this.grid[y][x]) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (y + dy >= 0 && y + dy < GRID_SIZE && 
+                                x + dx >= 0 && x + dx < GRID_SIZE) {
+                                if (!this.flags[y + dy][x + dx]) {
+                                    this.revealCell(x + dx, y + dy);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            checkWin() {
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        if (this.grid[y][x] !== -1 && !this.revealed[y][x]) return false;
+                    }
+                }
+                this.stopTimer();
+                return true;
+            }
+
+            draw() {
+                this.ctx.fillStyle = '#C0C0C0';
+                this.ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        const cellX = x * CELL_SIZE;
+                        const cellY = y * CELL_SIZE;
+                        
+                        this.ctx.strokeStyle = '#808080';
+                        this.ctx.strokeRect(cellX, cellY, CELL_SIZE, CELL_SIZE);
+                        
+                        if (this.revealed[y][x]) {
+                            if (this.grid[y][x] === -1) {
+                                this.ctx.font = '20px Arial';
+                                this.ctx.textAlign = 'center';
+                                this.ctx.textBaseline = 'middle';
+                                this.ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                                this.ctx.shadowBlur = 4;
+                                this.ctx.fillText('💣', cellX + CELL_SIZE/2, cellY + CELL_SIZE/2);
+                                this.ctx.shadowBlur = 0;
+                            } else if (this.grid[y][x] > 0) {
+                                this.ctx.fillStyle = COLORS[this.grid[y][x]];
+                                this.ctx.font = 'bold 20px Arial';
+                                this.ctx.textAlign = 'center';
+                                this.ctx.textBaseline = 'middle';
+                                this.ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                                this.ctx.shadowBlur = 2;
+                                this.ctx.fillText(
+                                    this.grid[y][x],
+                                    cellX + CELL_SIZE/2,
+                                    cellY + CELL_SIZE/2
+                                );
+                                this.ctx.shadowBlur = 0;
+                            }
+                        } else {
+                            this.ctx.fillStyle = '#DCDCDC';
+                            this.ctx.fillRect(cellX, cellY, CELL_SIZE, CELL_SIZE);
+                            if (this.flags[y][x]) {
+                                this.ctx.font = '20px Arial';
+                                this.ctx.textAlign = 'center';
+                                this.ctx.textBaseline = 'middle';
+                                this.ctx.fillText('🚩', cellX + CELL_SIZE/2, cellY + CELL_SIZE/2);
+                            }
+                        }
+                    }
+                }
+                
+                if (this.gameOver) {
+                    this.ctx.fillStyle = '#FF0000';
+                    this.ctx.font = '24px Arial';
+                    this.ctx.fillText('游戏结束!', CANVAS_SIZE/2, CANVAS_SIZE/2);
+                    this.restartButton.style.display = 'block';
+                } else if (this.won) {
+                    this.ctx.fillStyle = '#00FF00';
+                    this.ctx.font = '24px Arial';
+                    this.ctx.fillText('胜利!', CANVAS_SIZE/2, CANVAS_SIZE/2);
+                    this.restartButton.style.display = 'block';
+                }
+            }
+
+            setupEventListeners() {
+                // 阻止右键菜单
+                this.canvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+
+                this.canvas.addEventListener('mousedown', (e) => {
+                    if (this.gameOver || this.won) return;
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+                    const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+                    
+                    if (e.button === 2) { // 右键点击
+                        if (!this.revealed[y][x]) {
+                            this.flags[y][x] = !this.flags[y][x];
+                            this.draw();
+                        }
+                    } else if (e.button === 0) { // 左键点击
+                        const currentTime = Date.now();
+                        if (currentTime - this.lastClickTime < 300) {
+                            this.handleDoubleClick(x, y);
+                        } else {
+                            this.revealCell(x, y);
+                        }
+                        this.lastClickTime = currentTime;
+                        
+                        this.won = this.checkWin();
+                        this.draw();
+                    }
+                });
+            }
+
+            reset() {
+                this.grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+                this.revealed = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(false));
+                this.flags = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(false));
+                this.gameOver = false;
+                this.won = false;
+                this.lastClickTime = 0;
+                
+                this.startTime = null;
+                this.stopTimer();
+                this.timerElement.textContent = '时间: 0秒';
+                
+                this.placeMines();
+                this.calculateNumbers();
+                this.draw();
+                this.restartButton.style.display = 'none';
+            }
+
+            setupRestartButton() {
+                this.restartButton.addEventListener('click', () => {
+                    this.reset();
+                });
+            }
+
+            startTimer() {
+                if (!this.startTime) {
+                    this.startTime = Date.now();
+                    this.timerInterval = setInterval(() => {
+                        const currentTime = Math.floor((Date.now() - this.startTime) / 1000);
+                        this.timerElement.textContent = `时间: ${currentTime}秒`;
+                    }, 1000);
+                }
+            }
+
+            stopTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+        }
+
+        // 启动游戏
+        window.onload = () => {
+            const game = new Minesweeper();
+            game.draw();
+        };
+    </script>
+</body>
+</html> 
