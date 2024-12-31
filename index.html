@@ -75,7 +75,6 @@
             bottom: 20px;
             right: 20px;
             width: 300px;
-            height: 400px;
             background: rgba(0, 20, 0, 0.8);
             border: 1px solid #0f0;
             border-radius: 10px;
@@ -84,6 +83,42 @@
             z-index: 2;
             padding: 10px;
             box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            transition: height 0.3s ease;
+            height: 50px; /* 默认闭合状态的高度 */
+            overflow: hidden;
+        }
+
+        #chat-container.expanded {
+            height: 400px; /* 展开状态的高度 */
+        }
+
+        #chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+            color: #0f0;
+        }
+
+        #chat-header .title {
+            font-size: 1em;
+            margin: 0;
+        }
+
+        #toggle-chat {
+            color: #0f0;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 0;
+            transition: transform 0.3s ease;
+        }
+
+        #chat-container.expanded #toggle-chat {
+            transform: rotate(180deg);
         }
 
         #chat-messages {
@@ -222,6 +257,10 @@
 
     <!-- 聊天室容器 -->
     <div id="chat-container">
+        <div id="chat-header">
+            <span class="title">聊天室</span>
+            <button id="toggle-chat">▼</button>
+        </div>
         <div id="chat-messages"></div>
         <div id="chat-input-container">
             <input type="text" id="chat-input" placeholder="输入消息..." maxlength="100">
@@ -313,20 +352,63 @@
         setInterval(draw, 33);
 
         // 聊天室功能
-        let username = null;
-        while (!username) {
-            username = prompt('请输入你的昵称：');
-        }
-
+        let username = 'Unknown';  // 默认用户名
         const ws = new WebSocket('ws://' + window.location.host);
         const chatMessages = document.getElementById('chat-messages');
         const chatInput = document.getElementById('chat-input');
         const sendButton = document.getElementById('send-button');
 
+        // WebSocket事件处理
+        ws.onopen = () => {
+            addMessage({
+                type: 'system',
+                message: '已连接到聊天室',
+                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+            });
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // 处理初始化消息，设置用户名为IP地址
+            if (data.type === 'init') {
+                username = data.ip;
+                return;
+            }
+
+            // 确保聊天框展开
+            if (!chatContainer.classList.contains('expanded')) {
+                chatContainer.classList.add('expanded');
+            }
+            addMessage(data);
+        };
+
+        ws.onclose = () => {
+            addMessage({
+                type: 'system',
+                message: '与服务器断开连接',
+                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+            });
+        };
+
+        ws.onerror = (error) => {
+            addMessage({
+                type: 'system',
+                message: '连接发生错误',
+                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+            });
+            console.error('WebSocket error:', error);
+        };
+
         // 发送消息函数
         function sendMessage() {
             const message = chatInput.value.trim();
             if (message) {
+                // 确保聊天框展开
+                if (!chatContainer.classList.contains('expanded')) {
+                    chatContainer.classList.add('expanded');
+                }
+
                 const now = new Date();
                 const time = now.toLocaleTimeString('zh-CN', { hour12: false });
                 const messageData = {
@@ -334,9 +416,6 @@
                     message: message,
                     time: time
                 };
-                
-                // 立即在本地显示消息
-                addMessage(messageData);
                 
                 // 发送到服务器
                 ws.send(JSON.stringify(messageData));
@@ -362,41 +441,6 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // WebSocket事件处理
-        ws.onopen = () => {
-            // 连接成功时发送系统消息
-            addMessage({
-                type: 'system',
-                message: '已连接到聊天室',
-                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
-            });
-        };
-
-        ws.onclose = () => {
-            // 连接断开时发送系统消息
-            addMessage({
-                type: 'system',
-                message: '与服务器断开连接',
-                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
-            });
-        };
-
-        ws.onerror = (error) => {
-            // 发生错误时发送系统消息
-            addMessage({
-                type: 'system',
-                message: '连接发生错误',
-                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
-            });
-            console.error('WebSocket error:', error);
-        };
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            // 移除这个条件，显示所有收到的消息
-            addMessage(data);
-        };
-
         // 发送按钮点击事件
         sendButton.onclick = sendMessage;
 
@@ -405,6 +449,15 @@
             if (e.key === 'Enter') {
                 sendMessage();
             }
+        };
+
+        // 聊天室展开/闭合功能
+        const chatContainer = document.getElementById('chat-container');
+        const chatHeader = document.getElementById('chat-header');
+        const toggleChat = document.getElementById('toggle-chat');
+
+        chatHeader.onclick = () => {
+            chatContainer.classList.toggle('expanded');
         };
     </script>
 </body>
