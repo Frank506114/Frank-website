@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Countdown & Chat</title>
+    <!-- 引入Share Tech Mono字体，适合显示数字 -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* 基础页面样式 */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Share Tech Mono', monospace;
+            perspective: 1000px; /* 3D视角效果 */
+        }
+
+        /* 数字雨画布样式 */
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 倒计时容器样式 */
+        #countdown {
+            position: relative;
+            z-index: 1;
+            color: #0f0;
+            font-size: 4em;
+            /* 多层文字阴影创建发光效果 */
+            text-shadow: 
+                0 0 20px rgba(0, 255, 0, 0.7),
+                0 0 40px rgba(0, 255, 0, 0.5),
+                0 0 60px rgba(0, 255, 0, 0.3);
+            padding: 30px 50px;
+            letter-spacing: -2px;
+            animation: float 6s ease-in-out infinite;
+            transform-style: preserve-3d;
+            text-align: center;
+        }
+
+        /* 标题样式 */
+        .title {
+            font-size: 0.8em;
+            margin-bottom: 20px;
+            opacity: 0.9;
+            letter-spacing: 2px;
+        }
+
+        /* 数字样式 */
+        #countdown span {
+            display: inline-block;
+            animation: hover 2s ease-in-out infinite;
+        }
+
+        /* 单位（时分秒）样式 */
+        .unit {
+            font-size: 0.4em;
+            letter-spacing: 0;
+            margin: 0 5px;
+            opacity: 0.8;
+        }
+
+        /* 聊天室样式 */
+        #chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid #0f0;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            z-index: 2;
+            padding: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            transition: height 0.3s ease;
+            height: 50px; /* 默认闭合状态的高度 */
+            overflow: hidden;
+        }
+
+        #chat-container.expanded {
+            height: 400px; /* 展开状态的高度 */
+        }
+
+        #chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+            color: #0f0;
+        }
+
+        #chat-header .title {
+            font-size: 1em;
+            margin: 0;
+        }
+
+        #toggle-chat {
+            color: #0f0;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 0;
+            transition: transform 0.3s ease;
+        }
+
+        #chat-container.expanded #toggle-chat {
+            transform: rotate(180deg);
+        }
+
+        #chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 10px;
+            color: #0f0;
+            font-size: 14px;
+        }
+
+        #chat-messages::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #chat-messages::-webkit-scrollbar-track {
+            background: rgba(0, 20, 0, 0.8);
+        }
+
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: #0f0;
+            border-radius: 5px;
+        }
+
+        .message {
+            margin-bottom: 8px;
+            word-wrap: break-word;
+        }
+
+        .message .time {
+            color: #0f0;
+            opacity: 0.7;
+            font-size: 0.8em;
+        }
+
+        .message .username {
+            color: #0f0;
+            font-weight: bold;
+        }
+
+        .system-message {
+            color: #0f0;
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        #chat-input-container {
+            display: flex;
+            gap: 5px;
+        }
+
+        #chat-input {
+            flex-grow: 1;
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            color: #0f0;
+            padding: 5px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        #chat-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        #send-button {
+            background: #0f0;
+            border: none;
+            border-radius: 5px;
+            color: black;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        #send-button:hover {
+            background: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        /* 整体浮动动画 */
+        @keyframes float {
+            0% {
+                transform: translateY(0) rotateX(0deg);
+            }
+            50% {
+                transform: translateY(-20px) rotateX(5deg);
+            }
+            100% {
+                transform: translateY(0) rotateX(0deg);
+            }
+        }
+
+        /* 数字悬浮动画 */
+        @keyframes hover {
+            0% {
+                transform: translateY(0) scale(1);
+                text-shadow: 
+                    0 0 20px rgba(0, 255, 0, 0.7),
+                    0 0 40px rgba(0, 255, 0, 0.5),
+                    0 0 60px rgba(0, 255, 0, 0.3);
+            }
+            50% {
+                transform: translateY(-5px) scale(1.1);
+                text-shadow: 
+                    0 0 30px rgba(0, 255, 0, 0.9),
+                    0 0 60px rgba(0, 255, 0, 0.7),
+                    0 0 90px rgba(0, 255, 0, 0.5);
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                text-shadow: 
+                    0 0 20px rgba(0, 255, 0, 0.7),
+                    0 0 40px rgba(0, 255, 0, 0.5),
+                    0 0 60px rgba(0, 255, 0, 0.3);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 数字雨背景画布 -->
+    <canvas id="matrix"></canvas>
+    <!-- 倒计时显示区域 -->
+    <div id="countdown">
+        <div class="title">距离2025年还有</div>
+        <div>
+            <span>00</span>
+            <span class="unit">时</span>
+            <span>00</span>
+            <span class="unit">分</span>
+            <span>00</span>
+            <span class="unit">秒</span>
+        </div>
+    </div>
+
+    <!-- 聊天室容器 -->
+    <div id="chat-container">
+        <div id="chat-header">
+            <span class="title">聊天室</span>
+            <button id="toggle-chat">▼</button>
+        </div>
+        <div id="chat-messages"></div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="输入消息..." maxlength="100">
+            <button id="send-button">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // 倒计时更新函数
+        function updateCountdown() {
+            // 设置目标时间为2025年1月1日0点
+            const target = new Date('2025-01-01T00:00:00');
+            const now = new Date();
+            const diff = target - now;
+
+            // 计算时间差值
+            const totalHours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            // 格式化数字，补充前导零
+            const formattedHours = String(totalHours).padStart(2, '0');
+            const formattedMinutes = String(minutes).padStart(2, '0');
+            const formattedSeconds = String(seconds).padStart(2, '0');
+
+            // 更新DOM显示
+            const spans = document.querySelectorAll('#countdown span:not(.unit)');
+            spans[0].textContent = formattedHours;
+            spans[1].textContent = formattedMinutes;
+            spans[2].textContent = formattedSeconds;
+        }
+
+        // 初始化倒计时并每秒更新一次
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+
+        // Matrix数字雨效果
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+
+        // 设置画布尺寸为窗口大小
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        // 监听窗口大小变化
+        window.addEventListener('resize', resizeCanvas);
+
+        // 数字雨配置
+        const chars = '0123456789ABCDEF'; // 显示的字符集
+        const fontSize = 16; // 字体大小
+        const columns = canvas.width / fontSize; // 计算列数
+        const drops = []; // 存储每列的当前位置
+
+        // 初始化每列的起始位置
+        for (let i = 0; i < columns; i++) {
+            drops[i] = 1;
+        }
+
+        // 绘制数字雨
+        function draw() {
+            // 创建半透明黑色背景，形成渐隐效果
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 设置文字样式
+            ctx.font = fontSize + 'px monospace';
+
+            // 绘制每一列的字符
+            for (let i = 0; i < drops.length; i++) {
+                // 随机选择字符
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                // 计算透明度，使字符向下渐隐
+                const alpha = 1 - (drops[i] * fontSize) / canvas.height;
+                ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+                // 绘制字符
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                // 当字符到达底部时，有一定概率重置到顶部
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+
+        // 每33毫秒更新一次动画（约30fps）
+        setInterval(draw, 33);
+
+        // 聊天室功能
+        let username = 'Unknown';  // 默认用户名
+        const ws = new WebSocket('ws://' + window.location.host);
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+
+        // WebSocket事件处理
+        ws.onopen = () => {
+            addMessage({
+                type: 'system',
+                message: '已连接到聊天室',
+                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+            });
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // 处理初始化消息，设置用户名为IP地址
+            if (data.type === 'init') {
+                username = data.ip;
+                return;
+            }
+
+            // 确保聊天框展开
+            if (!chatContainer.classList.contains('expanded')) {
+                chatContainer.classList.add('expanded');
+            }
+            addMessage(data);
+        };
+
+        ws.onclose = () => {
+            addMessage({
+                type: 'system',
+                message: '与服务器断开连接',
+                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+            });
+        };
+
+        ws.onerror = (error) => {
+            addMessage({
+                type: 'system',
+                message: '连接发生错误',
+                time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+            });
+            console.error('WebSocket error:', error);
+        };
+
+        // 发送消息函数
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (message) {
+                // 确保聊天框展开
+                if (!chatContainer.classList.contains('expanded')) {
+                    chatContainer.classList.add('expanded');
+                }
+
+                const now = new Date();
+                const time = now.toLocaleTimeString('zh-CN', { hour12: false });
+                const messageData = {
+                    username: username,
+                    message: message,
+                    time: time
+                };
+                
+                // 发送到服务器
+                ws.send(JSON.stringify(messageData));
+                
+                chatInput.value = '';
+            }
+        }
+
+        // 添加消息到聊天框
+        function addMessage(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = data.type === 'system' ? 'message system-message' : 'message';
+            
+            const time = data.time || new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            
+            if (data.type === 'system') {
+                messageDiv.innerHTML = `<span class="time">[${time}]</span> ${data.message}`;
+            } else {
+                messageDiv.innerHTML = `<span class="time">[${time}]</span> <span class="username">${data.username}:</span> ${data.message}`;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 发送按钮点击事件
+        sendButton.onclick = sendMessage;
+
+        // 输入框回车事件
+        chatInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        };
+
+        // 聊天室展开/闭合功能
+        const chatContainer = document.getElementById('chat-container');
+        const chatHeader = document.getElementById('chat-header');
+        const toggleChat = document.getElementById('toggle-chat');
+
+        chatHeader.onclick = () => {
+            chatContainer.classList.toggle('expanded');
+        };
+    </script>
+</body>
+</html>
